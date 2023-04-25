@@ -9,22 +9,49 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class JobSeekerProfile {
 
-    public String fullName;
+    private int profileId;
+
+    private String fullName;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "MM-dd-yyyy")
-    public Date dob;
+    private Date dob;
 
-    public String address;
+    private String address;
 
-    public long phoneNumber;
+    private String phone;
 
-    public String degree;
+    private String degree;
 
-    public String university;
+    private String university;
 
-    public List<String> skills;
+    private List<String> skills;
 
-    public int yoe;
+    private int yoe;
+
+    public JobSeekerProfile() {
+        
+    }
+
+    public JobSeekerProfile(int id, String fullName, Date dob, String address, String phone, String degree,
+			String university, List<String> skills, int yoe) {
+		this.profileId = id;
+		this.fullName = fullName;
+		this.dob = dob;
+		this.address = address;
+		this.phone = phone;
+		this.degree = degree;
+		this.university = university;
+		this.skills = skills;
+		this.yoe = yoe;
+	}
+
+    public int getProfileId() {
+        return profileId;
+    }
+
+    public void setProfileId(int profileId) {
+        this.profileId = profileId;
+    }
 
     public String getFullName() {
         return fullName;
@@ -50,12 +77,12 @@ public class JobSeekerProfile {
         this.address = address;
     }
 
-    public long getPhoneNumber() {
-        return phoneNumber;
+    public String getPhone() {
+        return phone;
     }
 
-    public void setPhoneNumber(long phoneNumber) {
-        this.phoneNumber = phoneNumber;
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getDegree() {

@@ -2,17 +2,17 @@ package servlets;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Collections;
+import java.sql.SQLException;
 import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+
+import dao.JobApplicationDAO;
 
 /**
  * Sample servlet class for Profile related methods
@@ -41,7 +41,6 @@ public class ProfileServlet extends HttpServlet {
 		try {
 			// Deserialization into the `JobSeeker` class
 			profile = objectMapper.readValue(reqBodyBuilder.toString(), JobSeekerProfile.class);
-
 		} catch (InvalidFormatException e) {
 			e.printStackTrace();
 			resp.setStatus(400);
@@ -51,9 +50,18 @@ public class ProfileServlet extends HttpServlet {
 			return;
 		}
 
-		// TODO: send profile to DB
 		System.out.println("Saving profile: " + profile);
-
+		JobApplicationDAO dao = new JobApplicationDAO();
+		try {
+			dao.saveJobProfile(profile);
+		} catch (SQLException | ClassNotFoundException e) {
+			e.printStackTrace();
+			resp.setStatus(400);
+			resp.setContentType("plain/text");
+			resp.getWriter().println("Error from DB: " + e.getMessage());
+			resp.getWriter().close();
+			return;
+		}
 		resp.setStatus(200);
 		resp.setContentType("plain/text");
 		resp.getWriter().println("Profile submitted successfully!");
@@ -66,18 +74,21 @@ public class ProfileServlet extends HttpServlet {
 		System.out.println("Inside Profile Servlet /doGet ************");
 		String univSearchTerm = req.getParameter("university");
 		System.out.println("University search term: " + univSearchTerm);
-
-		// TODO: delete me after getting from DB
-		JobSeekerProfile dummyProfile = new JobSeekerProfile();
-		dummyProfile.setFullName("John Doe");
-		dummyProfile.setUniversity("Stanford");
-		dummyProfile.yoe = 42;
-
-		List<JobSeekerProfile> profiles = Collections.singletonList(dummyProfile);
-		// TODO: get profiles from DB using university search term
-
+		JobApplicationDAO dao = new JobApplicationDAO();
+		List<JobSeekerProfile> readProfiles;
+		try {
+			readProfiles = dao.getProfileByUniversity(univSearchTerm);
+		} catch (SQLException | ClassNotFoundException e) {
+			e.printStackTrace();
+			resp.setStatus(400);
+			resp.setContentType("plain/text");
+			resp.getWriter().println("Error retreiving from DB: " + e.getMessage());
+			resp.getWriter().close();
+			return;
+		}
+	
 		resp.setStatus(200);
-		resp.getWriter().println(new ObjectMapper().writeValueAsString(profiles));
+		resp.getWriter().println(new ObjectMapper().writeValueAsString(readProfiles));
 		resp.getWriter().close();
 	}
 
