@@ -46,6 +46,7 @@ Create a table named Profile with columns as follows:
 8. YOE - Integer
 
 Make three partitions of the table based on values in Degree (underGraduate, postGraduate, PhD) 
+
 *PARTITION BY LIST COLUMNS(Degree)*
 
 
