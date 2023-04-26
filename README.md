@@ -7,11 +7,10 @@ of applicants and recruiters
 
 ## MySQL -Julia
 To make the connection between the client program and SQL, we need to do the below:
-1. Download MySQL server version 8.0.33 using the below link
+1. Download and install MySQL server version 8.0.33 using the below link 
 Link: [](https://dev.mysql.com/downloads/mysql/)
-2. Download MySQL workbench
+2. Download and install MySQL workbench
 Link: [](https://dev.mysql.com/downloads/workbench/)
-3. JDBC driver using below link
 
 ## Table structure:
 Creating a table named Profile with columns as follows:
