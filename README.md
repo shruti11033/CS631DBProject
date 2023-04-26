@@ -22,7 +22,7 @@ mvn clean package
  
 Run this command from the JobPortal directory
 ```bash
-mvn clean tomcat7:deploy
+mvn tomcat7:deploy
 ```
 
 
