@@ -5,12 +5,10 @@ To build a scalable solution for an online job portal that scales with the growi
 of applicants and recruiters
 
 
-## MySQL -Julia
+## Database setup
 To make the connection between the client program and SQL, we need to do the below:
-1. Download MySQL server version 8.0.33 using the below link
-Link: [](https://dev.mysql.com/downloads/mysql/)
-2. Download MySQL workbench
-Link: [](https://dev.mysql.com/downloads/workbench/)
+1. Download MySQL server version 8.0.33 from [here](https://dev.mysql.com/downloads/mysql/)
+2. Download MySQL workbench from [here](https://dev.mysql.com/downloads/workbench/)
 3. JDBC driver using below link
 
 ## Table structure:
