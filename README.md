@@ -18,7 +18,7 @@ Run this command from the JobPortal directory
 mvn clean package
 ```
   
-### Running the web-serverr
+### Running the web-server
  
 Run this command from the JobPortal directory
 ```bash
