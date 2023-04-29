@@ -62,7 +62,7 @@ You can verify this works by visting the URL `http://localhost:8080/job-portal/`
 ### Database setup
 
 To make the connection between the web-server and SQL database, we need to do the below:
-1. Install MySQL server version 8.0.33 from [here](https://dev.mysql.com/downloads/mysql/)
+1. Install MySQL server from [here](https://dev.mysql.com/downloads/mysql/)
 2. Install MySQL workbench from [here](https://dev.mysql.com/downloads/workbench/)
 3. Set environment variables to access the database
   ```sh
@@ -73,15 +73,23 @@ To make the connection between the web-server and SQL database, we need to do th
       # For windows systems
       $env:DB_USER = 'root'
       $env:DB_USER = 'password'
-  ```    
+  ```
 
 #### Database Schema
 
+Login into Mysql server console using default root user and password
+```sh
+mysql -u root -p
+```
 Create a database with name `jobapplication`
-
+```sql
+CREATE DATABASE jobapplication;
+```
 Create the `Profile` table using following command
 
 ```sql
+USE jobapplication;
+
 CREATE TABLE `jobapplication`.`Profile` (
   `ProfileID` INT NOT NULL AUTO_INCREMENT,
   `FullName` VARCHAR(50) NOT NULL,
@@ -93,6 +101,8 @@ CREATE TABLE `jobapplication`.`Profile` (
   `YOE` INT NULL,
   `Skills` VARCHAR(500) DEFAULT '[]',
   PRIMARY KEY(`ProfileID`, `Degree`));
+
+DESCRIBE Profile;
 ```
 
 Create table partitions using following command
