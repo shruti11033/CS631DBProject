@@ -72,6 +72,13 @@ To make the connection between the web-server and SQL database, we need to do th
   GRANT ALL PRIVILEGES ON *.* TO 'myuser'@'localhost';
   FLUSH PRIVILEGES;
   ```
+  * Disable query caching
+  ```sh
+  mysql -u root -p
+  SHOW VARIABLES LIKE 'query_cache_type';
+  SET GLOBAL query_cache_type = OFF;
+  ```
+  * 
 3. Set environment variables, to access the database, for Tomcat server
   ```sh
   # Create and update the Tomcat setenev.sh(Unix) or setenv.bat(Windows) script 
