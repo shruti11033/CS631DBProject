@@ -31,11 +31,11 @@ public class JobApplicationDAO {
 
 	private final static String DB_URL = "jdbc:mysql://localhost:3306/jobapplication";
 
-	private static final String INSERT_QUERY = "INSERT INTO Profile (FullName, DOB, Address, Phone, Degree, University, YOE, Skills) "
+	private static final String INSERT_QUERY = "INSERT INTO profile (FullName, DOB, Address, Phone, Degree, University, YOE, Skills) "
 			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
 	private static final String SELECT_QUERY = "SELECT ProfileID, FullName, DOB, Address, Phone, Degree, University, YOE, Skills "
-			+ "FROM jobapplication.Profile where %s = %s";
+			+ "FROM jobapplication.profile where %s = %s";
 
 	public static boolean saveJobProfile(JobSeekerProfile profile)
 			throws SQLException, ClassNotFoundException, JsonProcessingException {
@@ -66,10 +66,6 @@ public class JobApplicationDAO {
 		return false;
 	}
 
-	public static List<JobSeekerProfile> getProfileById(int id)
-			throws SQLException, ClassNotFoundException, JsonProcessingException {
-		return getProfile("ProfileID", String.valueOf(id));
-	}
 
 	public static List<JobSeekerProfile> getProfileByUniversity(String university)
 			throws SQLException, ClassNotFoundException, JsonProcessingException {

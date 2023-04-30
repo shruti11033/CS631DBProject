@@ -3,6 +3,7 @@ package servlet;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.List;
 
 import javax.servlet.ServletException;
@@ -85,17 +86,39 @@ public class ProfileServlet extends HttpServlet {
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		System.out.println("********** ProfileServlet/doGet **********");
 
-		String univSearchTerm = req.getParameter("university");
-
-		if (univSearchTerm == null || univSearchTerm == "") {
-			sendErrorResponse(resp, 400, "Invalid request, missing search query param");
+		Map<String, String[]> queryParams = req.getParameterMap();
+        	if (queryParams.size() != 1) {
+			sendErrorResponse(resp, 400, "Invalid request, expecting exactly one query param");
 			return;
 		}
 
-		System.out.println("University search term: " + univSearchTerm);
+		String key = null;
+		String value = null;
+		for (String param : queryParams.keySet()) {
+            		String[] values = queryParams.get(param);
+			if (values.length != 1) {
+				sendErrorResponse(resp, 400, "Invalid request, expecting exactly one value for query  param");
+				return;
+			}
+			System.out.println("Search param: " + param + ", value: " + values[0]);
+			key = param;
+			value = values[0];
+		}
+
+
 		List<JobSeekerProfile> readProfiles;
 		try {
-			readProfiles = JobApplicationDAO.getProfileByUniversity(univSearchTerm);
+			switch (key) {
+				case "university":
+					readProfiles = JobApplicationDAO.getProfileByUniversity(value);
+					break;
+				case "degree":
+					readProfiles = JobApplicationDAO.getProfileByDegree(value);
+					break;
+				default:
+					sendErrorResponse(resp, 400, "Invalid request, unsupported query param: " + key);
+					return;
+			}
 		} catch (SQLException | ClassNotFoundException e) {
 			e.printStackTrace();
 			sendErrorResponse(resp, 400, "Failed to read profiles. Error: " + e.getMessage());
