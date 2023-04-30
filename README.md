@@ -64,22 +64,29 @@ You can verify this works by visting the URL `http://localhost:8080/job-portal/`
 To make the connection between the web-server and SQL database, we need to do the below:
 1. Install MySQL server from [here](https://dev.mysql.com/downloads/mysql/)
 2. Install MySQL workbench from [here](https://dev.mysql.com/downloads/workbench/)
-3. Set environment variables to access the database
+  * Setup a user that can be used for the application
   ```sh
-      # For unix systems
-      sudo sh -c 'echo "DB_USER=root" >> /etc/environment'
-      sudo sh -c 'echo "DB_PASS=password" >> /etc/environment'
-      source /etc/environment   
-      # For windows systems
-      $env:DB_USER = 'root'
-      $env:DB_USER = 'password'
+  # Login with default user with root password
+  mysql -u root -p
+  CREATE USER 'myuser'@'localhost' IDENTIFIED BY 'mypassword';
+  GRANT ALL PRIVILEGES ON *.* TO 'myuser'@'localhost';
+  FLUSH PRIVILEGES;
+  ```
+3. Set environment variables, to access the database, for Tomcat server
+  ```sh
+  # Create and update the Tomcat setenev.sh(Unix) or setenv.bat(Windows) script 
+  sudo sh -c 'echo "export DB_USER=myuser" >> $CATALINA_HOME/bin/setenv.sh'
+  sudo sh -c 'echo "export DB_PASS=mypassword" >> $CATALINA_HOME/bin/setenv.sh"' 
+  
+  # Restart the Tomcat server
+  sudo systemctl restart tomcat9
   ```
 
 #### Database Schema
 
-Login into Mysql server console using default root user and password
+Login into Mysql server console using your user
 ```sh
-mysql -u root -p
+mysql -u myuser -p
 ```
 Create a database with name `jobapplication`
 ```sql
