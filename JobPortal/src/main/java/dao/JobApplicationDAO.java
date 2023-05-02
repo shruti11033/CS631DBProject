@@ -6,8 +6,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,34 +19,80 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import pojo.JobSeekerProfile;
 
 /**
- * @author Julia
+ * @author Julia, Shruti
  */
 public class JobApplicationDAO {
 
+	private static boolean isPartioningEnabled = true;
 	private static String dbUser;
 	private static String dbPassword;
+	private static Map<String, Integer> degreePartitions;
+	private static List<String> dbURLS = Arrays.asList(
+			"jdbc:mysql://localhost:3306/jobapplication",
+			"jdbc:mysql://localhost:3307/jobapplication",
+			"jdbc:mysql://localhost:3308/jobapplication");
+
 	static {
 		dbUser = System.getenv("DB_USER");
 		dbPassword = System.getenv("DB_PASS");
 		if (dbUser == null || dbPassword == null) {
 			throw new RuntimeException("DB credentials missing");
 		}
-	}
 
-	private final static String DB_URL = "jdbc:mysql://localhost:3306/jobapplication";
+		degreePartitions = new HashMap<String, Integer>() {
+			{
+				put("MS", 0);
+				put("MEng", 0);
+				put("BS", 0);
+				put("BEng", 0);
+				put("BA", 1);
+				put("BBA", 1);
+				put("BFA", 1);
+				put("MA", 1);
+				put("MBA", 2);
+				put("PhD", 2);
+				put("MD", 2);
+			}
+		};
+	}
 
 	private static final String INSERT_QUERY = "INSERT INTO profile (FullName, DOB, Address, Phone, Degree, University, YOE, Skills) "
 			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
 	private static final String SELECT_QUERY = "SELECT ProfileID, FullName, DOB, Address, Phone, Degree, University, YOE, Skills "
-			+ "FROM jobapplication.profile where %s = %s";
+			+ "FROM jobapplication.profile where %s = '%s'";
+
+	// partition index is a value in 0 to n-1 range
+	// when n === number of databases available
+	private static Integer getPartitionIndexForDegree(String degreeName) {
+		// another possible partitioning logic is
+		// key.hashCode() % dbURLs.size(), this is generic for any string value
+		// but it can cause problems if most strings map to same partition index
+		return degreePartitions.get(degreeName);
+	}
 
 	public static boolean saveJobProfile(JobSeekerProfile profile)
 			throws SQLException, ClassNotFoundException, JsonProcessingException {
 		// load and register JDBC driver for MySQL
 		Class.forName("com.mysql.jdbc.Driver");
 
-		try (Connection connection = DriverManager.getConnection(DB_URL, dbUser, dbPassword);
+		int dbServerCount = dbURLS.size();
+		Integer dbIndex = null;
+		if (isPartioningEnabled) {
+			// With Partition Logic we will find the exact db where all the rows for the
+			// given degree filter value can be saved
+			dbIndex = getPartitionIndexForDegree(profile.getDegree());
+		}
+
+		// if not using partitions, randomly pick a server to save the profile
+		// dbIndex can also be null, if partition could not be determined
+		if (dbIndex == null) {
+			Random random = new Random();
+			dbIndex = random.nextInt(dbServerCount);
+		}
+
+		String dbURL = dbURLS.get(dbIndex);
+		try (Connection connection = DriverManager.getConnection(dbURL, dbUser, dbPassword);
 				PreparedStatement statement = connection.prepareStatement(INSERT_QUERY)) {
 			// statement.setInt(1, profile.getProfileId());
 			statement.setString(1, profile.getFullName());
@@ -55,37 +105,31 @@ public class JobApplicationDAO {
 			statement.setString(8, new ObjectMapper().writeValueAsString(profile.getSkills()));
 			int rowsInserted = statement.executeUpdate();
 			if (rowsInserted == 1) {
-				System.out.println("Profile added successfully!");
 				return true;
 			}
 
 		} catch (SQLException | JsonProcessingException e) {
-			System.out.println("Error adding profile in jobapplication: " + e.getMessage());
 			throw e;
 		}
 		return false;
 	}
 
-
 	public static List<JobSeekerProfile> getProfileByUniversity(String university)
 			throws SQLException, ClassNotFoundException, JsonProcessingException {
-		return getProfile("University", "'" + university + "'");
+		return getProfiles("University", university);
 	}
 
 	public static List<JobSeekerProfile> getProfileByDegree(String degree)
 			throws SQLException, ClassNotFoundException, JsonProcessingException {
-		return getProfile("Degree", "'" + degree + "'");
+		return getProfiles("Degree", degree);
 	}
 
-	private static List<JobSeekerProfile> getProfile(String filter, String value)
-			throws SQLException, ClassNotFoundException, JsonProcessingException {
+	private static List<JobSeekerProfile> getProfilesWithQuery(String query, String dbURL)
+			throws SQLException, JsonProcessingException {
+
 		List<JobSeekerProfile> profiles = new ArrayList<JobSeekerProfile>();
-		String query = String.format(SELECT_QUERY, filter, value);
 
-		// load and register JDBC driver for MySQL
-		Class.forName("com.mysql.jdbc.Driver");
-
-		try (Connection connection = DriverManager.getConnection(DB_URL, dbUser, dbPassword);
+		try (Connection connection = DriverManager.getConnection(dbURL, dbUser, dbPassword);
 				PreparedStatement stmt = connection.prepareStatement(query)) {
 			ResultSet rs = stmt.executeQuery();
 			// iterate through the java resultset
@@ -101,17 +145,45 @@ public class JobApplicationDAO {
 				String skillStr = rs.getString("Skills");
 				List<String> skills = new ObjectMapper().readValue(skillStr, List.class);
 
-				JobSeekerProfile profile = new JobSeekerProfile(
-						profileID, fullName, dob, address, phone, degree, university, yoe, skills);
-				profiles.add(profile);
+				profiles.add(new JobSeekerProfile(
+						profileID, fullName, dob, address, phone, degree, university, yoe, skills));
 
+				// System.out.println("profiles size: " + counterNodes + " " + profiles.size());
 			}
-			System.out.println("Found entries: " + profiles.size());
-
+			// System.out.println("Found entries: " + profiles.size());
 		} catch (SQLException | JsonProcessingException e) {
-			System.out.println("Error reading profiles using filter " + filter + "=" + value);
 			throw e;
 		}
+		return profiles;
+	}
+
+	private static List<JobSeekerProfile> getProfiles(String filter, String value)
+			throws SQLException, ClassNotFoundException, JsonProcessingException {
+
+		List<JobSeekerProfile> profiles = new ArrayList<JobSeekerProfile>();
+		String query = String.format(SELECT_QUERY, filter, value);
+
+		// load and register JDBC driver for MySQL
+		Class.forName("com.mysql.jdbc.Driver");
+
+		if (isPartioningEnabled && filter == "Degree") {
+			// with partition only if filter is degree
+			Integer dbIndex = getPartitionIndexForDegree(value);
+			if (dbIndex != null) {
+				// we know the exact db where rows for this partition is saved
+				String dbURL = dbURLS.get(dbIndex);
+				return getProfilesWithQuery(query, dbURL);
+			}
+			// we couldn't find the partition, so we need to scan all databases
+		}
+
+		// Without Partition Logic
+		// querying rows from all databases, one at a time
+		// and then collecting them in profiles list
+		for (String dbURL : dbURLS) {
+			profiles.addAll(getProfilesWithQuery(query, dbURL));
+		}
+
 		return profiles;
 	}
 }

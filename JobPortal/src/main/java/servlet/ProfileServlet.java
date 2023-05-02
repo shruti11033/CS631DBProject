@@ -18,27 +18,29 @@ import dao.JobApplicationDAO;
 import pojo.JobSeekerProfile;
 
 /**
- * Sample servlet class for Profile related methods
+ * Servlet class for Profile related methods
+ * 
+ * @author Shruti
  */
 public class ProfileServlet extends HttpServlet {
 
 	private static void sendOk(HttpServletResponse resp, String body) throws IOException {
 		resp.setStatus(200);
 		resp.setContentType("plain/text");
-		resp.getWriter().println(body);
+		resp.getWriter().print(body);
 		resp.getWriter().close();
 	}
 
 	private static void sendErrorResponse(HttpServletResponse resp, int statusCode, String message) throws IOException {
 		resp.setStatus(statusCode);
 		resp.setContentType("plain/text");
-		resp.getWriter().println(message);
+		resp.getWriter().print(message);
+		System.out.println(message);
 		resp.getWriter().close();
 	}
 
 	// Method to submit candidate's profile
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-		System.out.println("********** ProfileServlet/doPost **********");
 
 		StringBuilder reqBodyBuilder = new StringBuilder();
 		BufferedReader reader = req.getReader();
@@ -50,7 +52,6 @@ public class ProfileServlet extends HttpServlet {
 		} finally {
 			reader.close();
 		}
-		System.out.println("Got request body: " + reqBodyBuilder.toString());
 
 		// ObjectMapper instantiation
 		ObjectMapper objectMapper = new ObjectMapper();
@@ -64,11 +65,10 @@ public class ProfileServlet extends HttpServlet {
 			return;
 		}
 
-		System.out.println("Saving profile: " + profile);
 		boolean isSaved;
 		try {
 			isSaved = JobApplicationDAO.saveJobProfile(profile);
-		} catch (SQLException | ClassNotFoundException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 			sendErrorResponse(resp, 500, "Failed to save profile. Error: " + e.getMessage());
 			return;
@@ -84,10 +84,9 @@ public class ProfileServlet extends HttpServlet {
 
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-		System.out.println("********** ProfileServlet/doGet **********");
 
 		Map<String, String[]> queryParams = req.getParameterMap();
-        	if (queryParams.size() != 1) {
+		if (queryParams.size() != 1) {
 			sendErrorResponse(resp, 400, "Invalid request, expecting exactly one query param");
 			return;
 		}
@@ -95,16 +94,14 @@ public class ProfileServlet extends HttpServlet {
 		String key = null;
 		String value = null;
 		for (String param : queryParams.keySet()) {
-            		String[] values = queryParams.get(param);
+			String[] values = queryParams.get(param);
 			if (values.length != 1) {
 				sendErrorResponse(resp, 400, "Invalid request, expecting exactly one value for query  param");
 				return;
 			}
-			System.out.println("Search param: " + param + ", value: " + values[0]);
 			key = param;
 			value = values[0];
 		}
-
 
 		List<JobSeekerProfile> readProfiles;
 		try {
@@ -119,7 +116,7 @@ public class ProfileServlet extends HttpServlet {
 					sendErrorResponse(resp, 400, "Invalid request, unsupported query param: " + key);
 					return;
 			}
-		} catch (SQLException | ClassNotFoundException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 			sendErrorResponse(resp, 400, "Failed to read profiles. Error: " + e.getMessage());
 			return;
