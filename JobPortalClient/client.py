@@ -11,11 +11,14 @@ import random
 import requests
 import string
 import time
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 
 WEB_SERVER_URL = "http://localhost:8080/job-portal/profiles"
 
-
-DEGREES = ["BA", "BS", "BBA", "BEng", "BFA", "MA", "MS", "MEng", "MBA", "PhD", "MD"]
+DEGREES = ["BA", "BS", "BBA", "BEng", "BFA",
+           "MA", "MS", "MEng", "MBA", "PhD", "MD"]
 
 UNIVERSITIES = ["CSUEB", "SJSU", "SCU", "CMU", "UFL", "SUNYB", "CSU"]
 
@@ -33,7 +36,21 @@ SKILLS = [
     "AWS",
 ]
 
-WRITE_THREAD_POOL_SIZE = 4
+WRITE_THREAD_POOL_SIZE = 2
+
+HTTP_SESSION = None
+
+
+def get_session():
+    global HTTP_SESSION
+    if HTTP_SESSION:
+        return HTTP_SESSION
+    HTTP_SESSION = requests.Session()
+    retry = Retry(connect=3, backoff_factor=0.5)
+    adapter = HTTPAdapter(max_retries=retry)
+    HTTP_SESSION.mount('http://', adapter)
+    HTTP_SESSION.mount('https://', adapter)
+    return HTTP_SESSION
 
 
 def random_string(length):
@@ -41,9 +58,7 @@ def random_string(length):
 
 
 def random_string_with_numbers(length):
-    return "".join(
-        random.choices(string.ascii_letters + string.digits + "       ", k=length)
-    )
+    return "".join(random.choices(string.ascii_letters + string.digits + "       ", k=length))
 
 
 def random_number_string(length):
@@ -65,14 +80,15 @@ def random_skills_list():
 def random_date():
     year = random.randint(1970, 2022)
     month = random.randint(1, 12)
-    day = random.randint(
-        1,
-        31
-        if month in [1, 3, 5, 7, 8, 10, 12]
-        else 30
-        if month in [4, 6, 9, 11]
-        else 28,
-    )
+
+    def get_days_for_month(month, year):
+        if month in [1, 3, 5, 7, 8, 10, 12]:
+            return 31
+        if month == 2:
+            return 29 if year % 4 == 0 else 28
+        return 30
+
+    day = random.randint(1, get_days_for_month(month, year))
     return datetime.date(year, month, day).strftime("%m-%d-%Y")
 
 
@@ -92,7 +108,7 @@ def generate_profile():
 def get_profiles(paramName, paramValue):
     url = WEB_SERVER_URL
     params = {paramName: paramValue}
-    response = requests.get(url, params=params)
+    response = get_session().get(url, params=params)
     if response.status_code != 200:
         raise Exception(response.text)
     return response.json()
@@ -101,24 +117,21 @@ def get_profiles(paramName, paramValue):
 def save_profile(profile):
     url = WEB_SERVER_URL
     headers = {"Content-Type": "application/json"}
-    response = requests.post(url, headers=headers, data=profile)
+    response = get_session().post(url, headers=headers, data=profile)
     return response.status_code, response.text
 
 
 def generator(n, fileName):
     print("Running generator function for {} profiles, file: {}")
     with open(fileName, "w") as f:
-        for i in range(n):
+        for _ in range(n):
             p = generate_profile()
             f.write(json.dumps(p) + "\n")
 
 
 def reader(fieldKey, fieldValue, repeat=0):
-    print(
-        "Running reader function for filter key={}, value={}, will repeat {} times".format(
-            fieldKey, fieldValue, repeat
-        )
-    )
+    print("Running reader function for filter key={}, value={}, will repeat {} times".format(
+        fieldKey, fieldValue, repeat))
     if not repeat:
         profiles = get_profiles(fieldKey, fieldValue)
         print("Read {} profiles".format(len(profiles)))
@@ -126,22 +139,19 @@ def reader(fieldKey, fieldValue, repeat=0):
 
     times = []
     profilesRead = 0
-    for i in range(repeat):
+    for _ in range(repeat):
         start_time = time.time()
         profilesRead = len(get_profiles(fieldKey, fieldValue))
         times.append(time.time() - start_time)
 
     print("Each request returned {} rows".format(profilesRead))
-    print(
-        "The request was repeated {} times. Average time taken for each request is: {} ms".format(
-            repeat, round(1000 * sum(times) / len(times), 3)
-        )
-    )
+    print("The request was repeated {} times. Average time taken for each request is: {} ms".format(
+        repeat, round(1000 * sum(times) / len(times), 3)))
 
 
-def is_json(mystr):
+def is_json(json_string):
     try:
-        json.loads(mystr)
+        json.loads(json_string)
     except ValueError:
         return False
     return True
@@ -167,10 +177,7 @@ def writer(profile, fileName):
                     code, msg = save_profile(line)
                     if code != 200:
                         raise Exception(
-                            "Saved {} profiles, encountered error: {}".format(
-                                saved, msg
-                            )
-                        )
+                            "Saved {} profiles, encountered error: {}".format(saved, msg))
                     saved += 1
             else:
                 with concurrent.futures.ThreadPoolExecutor(
@@ -184,74 +191,46 @@ def writer(profile, fileName):
                         code, msg = result
                         if code != 200:
                             raise Exception(
-                                "Saved {} profiles, encountered error: {}".format(
-                                    saved, msg
-                                )
-                            )
+                                "Saved {} profiles, encountered error: {}".format(saved, msg))
                         saved += 1
-        print(
-            "Time taken to write {} profiles is {}s".format(
-                saved, round(time.time() - start_time, 3)
-            )
-        )
+        print("Time taken to write {} profiles is {}s".format(
+            saved, round(time.time() - start_time, 3)))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-g", "--generator", help="Run the generator function", action="store_true"
-    )
-    parser.add_argument("-n", "--count", help="Number of profiles to save", type=int)
+        "-g", "--generator", help="Run the generator function", action="store_true")
     parser.add_argument(
-        "-r", "--reader", help="Run the reader function", action="store_true"
-    )
+        "-n", "--count", help="Number of profiles to save", type=int)
     parser.add_argument(
-        "-k", "--fieldKey", help="Name of the field for read query", type=str
-    )
+        "-r", "--reader", help="Run the reader function", action="store_true")
     parser.add_argument(
-        "-v", "--fieldValue", help="Value of the field for read query", type=str
-    )
+        "-k", "--fieldKey", help="Name of the field for read query", type=str)
     parser.add_argument(
-        "-b",
-        "--benchmark",
-        help="Number of read requests to run for benchmarking",
-        type=int,
-    )
+        "-v", "--fieldValue", help="Value of the field for read query", type=str)
     parser.add_argument(
-        "-w",
-        "--writer",
-        help="Run the writer function to write a single profile",
-        action="store_true",
-    )
+        "-b", "--benchmark",  help="Number of read requests to run for benchmarking",  type=int)
     parser.add_argument(
-        "-p",
-        "--profile",
-        help="A job portal profile to save, given as JSON string",
-        type=str,
-    )
+        "-w", "--writer", help="Run the writer function to write a single profile", action="store_true")
     parser.add_argument(
-        "-f",
-        "--file",
-        help="File name to generate profiles into, or read profiles from",
-        type=str,
-    )
+        "-p", "--profile", help="A job portal profile to save, given as JSON string", type=str)
+    parser.add_argument(
+        "-f", "--file", help="File name to generate profiles into, or read profiles from", type=str)
     args = parser.parse_args()
 
     if args.generator:
         if not args.count or not args.file:
             raise ValueError(
-                "Invalid input, must provide both count and file for generator option"
-            )
+                "Invalid input, must provide both count and file for generator option")
         generator(args.count, args.file)
     if args.reader:
         if not args.fieldKey or not args.fieldValue:
             raise ValueError(
-                "Invalid input, must provide both field key and value for reader option"
-            )
+                "Invalid input, must provide both field key and value for reader option")
         reader(args.fieldKey, args.fieldValue, args.benchmark)
     if args.writer:
         if not args.profile and not args.file:
             raise ValueError(
-                "Invalid input, must provide a profile JSON to write or file to read profiles for writer option"
-            )
+                "Invalid input, must provide a profile JSON to write or file to read profiles for writer option")
         writer(args.profile, args.file)

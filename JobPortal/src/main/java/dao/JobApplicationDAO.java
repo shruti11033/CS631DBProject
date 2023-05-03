@@ -23,7 +23,9 @@ import pojo.JobSeekerProfile;
  */
 public class JobApplicationDAO {
 
+	// Flag to enable/disable partitioning logic for read/write
 	private static boolean isPartioningEnabled = true;
+
 	private static String dbUser;
 	private static String dbPassword;
 	private static Map<String, Integer> degreePartitions;
@@ -31,6 +33,8 @@ public class JobApplicationDAO {
 			"jdbc:mysql://localhost:3306/jobapplication",
 			"jdbc:mysql://localhost:3307/jobapplication",
 			"jdbc:mysql://localhost:3308/jobapplication");
+
+	private static List<Connection> dbConnections = new ArrayList<>();
 
 	static {
 		dbUser = System.getenv("DB_USER");
@@ -54,6 +58,23 @@ public class JobApplicationDAO {
 				put("MD", 2);
 			}
 		};
+
+		// load and register JDBC driver for MySQL
+		try {
+			Class.forName("com.mysql.jdbc.Driver");
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		for (String dbURL : dbURLS) {
+			try {
+				Connection connection = DriverManager.getConnection(dbURL, dbUser, dbPassword);
+				dbConnections.add(connection);
+			} catch (SQLException e) {
+				e.printStackTrace();
+				throw new RuntimeException(e.getMessage());
+			}
+		}
 	}
 
 	private static final String INSERT_QUERY = "INSERT INTO profile (FullName, DOB, Address, Phone, Degree, University, YOE, Skills) "
@@ -73,8 +94,6 @@ public class JobApplicationDAO {
 
 	public static boolean saveJobProfile(JobSeekerProfile profile)
 			throws SQLException, ClassNotFoundException, JsonProcessingException {
-		// load and register JDBC driver for MySQL
-		Class.forName("com.mysql.jdbc.Driver");
 
 		int dbServerCount = dbURLS.size();
 		Integer dbIndex = null;
@@ -91,9 +110,8 @@ public class JobApplicationDAO {
 			dbIndex = random.nextInt(dbServerCount);
 		}
 
-		String dbURL = dbURLS.get(dbIndex);
-		try (Connection connection = DriverManager.getConnection(dbURL, dbUser, dbPassword);
-				PreparedStatement statement = connection.prepareStatement(INSERT_QUERY)) {
+		Connection connection = dbConnections.get(dbIndex);
+		try (PreparedStatement statement = connection.prepareStatement(INSERT_QUERY)) {
 			// statement.setInt(1, profile.getProfileId());
 			statement.setString(1, profile.getFullName());
 			statement.setDate(2, new java.sql.Date(profile.getDob().getTime()));
@@ -124,13 +142,13 @@ public class JobApplicationDAO {
 		return getProfiles("Degree", degree);
 	}
 
-	private static List<JobSeekerProfile> getProfilesWithQuery(String query, String dbURL)
+	private static List<JobSeekerProfile> getProfilesWithQuery(String query, int dbIndex)
 			throws SQLException, JsonProcessingException {
 
 		List<JobSeekerProfile> profiles = new ArrayList<JobSeekerProfile>();
 
-		try (Connection connection = DriverManager.getConnection(dbURL, dbUser, dbPassword);
-				PreparedStatement stmt = connection.prepareStatement(query)) {
+		Connection connection = dbConnections.get(dbIndex);
+		try (PreparedStatement stmt = connection.prepareStatement(query)) {
 			ResultSet rs = stmt.executeQuery();
 			// iterate through the java resultset
 			while (rs.next()) {
@@ -171,8 +189,7 @@ public class JobApplicationDAO {
 			Integer dbIndex = getPartitionIndexForDegree(value);
 			if (dbIndex != null) {
 				// we know the exact db where rows for this partition is saved
-				String dbURL = dbURLS.get(dbIndex);
-				return getProfilesWithQuery(query, dbURL);
+				return getProfilesWithQuery(query, dbIndex);
 			}
 			// we couldn't find the partition, so we need to scan all databases
 		}
@@ -180,8 +197,8 @@ public class JobApplicationDAO {
 		// Without Partition Logic
 		// querying rows from all databases, one at a time
 		// and then collecting them in profiles list
-		for (String dbURL : dbURLS) {
-			profiles.addAll(getProfilesWithQuery(query, dbURL));
+		for (int i = 0; i < dbURLS.size(); i++) {
+			profiles.addAll(getProfilesWithQuery(query, i));
 		}
 
 		return profiles;
