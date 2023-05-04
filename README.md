@@ -1,7 +1,9 @@
 # Job Portal
-CS631 - Database Systems Course Project
+**CS631** - Database Systems Course Project
 
 To build a scalable solution for an online job portal that scales with the growing number of applicants and recruiters.
+
+**Project Team:** Julia Umma Reddy (nettID: rx7980), Shruti Sharma (netID: ux1961)
 
 
 ## Setup
