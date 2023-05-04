@@ -1,22 +1,24 @@
-# CS631
-Job Portal - Database Systems Course Project
+# Job Portal
+CS631 - Database Systems Course Project
 
-To build a scalable solution for an online job portal that scales with the growing number
-of applicants and recruiters
+To build a scalable solution for an online job portal that scales with the growing number of applicants and recruiters.
 
 
 ## Setup
 
-### Web-Server Setup
+### 1. Web-Server Setup
 
 * Install Java Development Kit from [here](https://docs.oracle.com/en/java/javase/18/install/overview-jdk-installation.html)
   * Ensure that you have set `JAVA_HOME` environment variable as path to JDK installation dir, and added `$JAVA_HOME/bin` to `$PATH`
+
 * Install Apache Maven from [here](https://maven.apache.org/install.html)
   * Ensure that you have set `M2_HOME` environment variable as path to Maven installation dir, and added `$M2_HOME/bin` to `$PATH`  
+
 * Install Apache Tomcat from [here](https://tomcat.apache.org/tomcat-8.5-doc/setup.html)
   * Ensure that you have set the `CATALINA_HOME` environment variable as path to Tomcat installation dir.
   * Start the Tomcat server, by default it should run on port 8080, you can verify this by visiting the URL `http://localhost:8080`
-* Add users to managing Tomcat server from UI and scripts
+
+* Add users to manage Tomcat server from UI and scripts
   ```sh
   # Open tomcat users config file
   sudo vi /etc/tomcat9/tomcat-users.xml
@@ -25,6 +27,7 @@ of applicants and recruiters
   <user username="gui_admin" password="password" roles="manager-gui"/>
   <user username="script_admin" password="password" roles="manager-script"/>
   ```
+
 * Add Tomcat user to Maven settings, this is needed so that Maven can deploy the war file to the Tomcat server.
   ```sh
   # Open Maven settings file, create one if it does not exist
@@ -42,14 +45,14 @@ of applicants and recruiters
   </settings>
   ```
 
-#### Building the web-server
+#### 1.1 Building the web-server
 
 Run this command from the JobPortal directory to compile the web-server code and generate the .war archive file.
 ```bash
-mvn clean install
+mvn clean package
 ```
   
-#### Running the web-server
+#### 1.2 Running the web-server
  
 Run this command from the JobPortal directory to deploy the generated .war archive file on the Tomcat server.
 ```bash
@@ -59,13 +62,14 @@ mvn tomcat7:deploy
 You can verify this works by visting the URL `http://localhost:8080/job-portal/`
 
 
-### Database setup
+### 2. Database setup
 
-To make the connection between the web-server and SQL database, we need to do the below:
-1. Install MySQL server from [here](https://dev.mysql.com/downloads/mysql/)
-2. Install MySQL workbench from [here](https://dev.mysql.com/downloads/workbench/)
-  * Create multiple Mysql servers, in this example we are creating two more instances of MySQL server
-  ```sh
+#### 2.1 Installing Database
+
+* Install MySQL workbench from [here](https://dev.mysql.com/downloads/workbench/)
+* Install MySQL server from [here](https://dev.mysql.com/downloads/mysql/)
+* Creating multiple Mysql servers, in this example we are creating two more instances of MySQL server, apart from the default one installed on port 3306 by previous step.
+```sh
 sudo bash -c 'cat <<EOF > /etc/mysql/conf.d/mysql2.cnf
 [mysql]
 [mysqld]
@@ -110,47 +114,50 @@ sudo mysqld --defaults-file=/etc/mysql/conf.d/mysql3.cnf --user=mysql
 sudo mysql -u root -p --socket=/var/run/mysqld/mysqld.sock
 sudo mysql -u root -p --socket=/var/run/mysqld/mysqld2.sock
 sudo mysql -u root -p --socket=/var/run/mysqld/mysqld3.sock
-
 ```
-  * Setup a user that can be used for the application
-  ```sh
-  # Login with default user=root password=root on first instance
-  sudo mysql -u myuser -p --socket=/var/run/mysqld/mysqld.sock
-  
-  CREATE USER 'myuser'@'localhost' IDENTIFIED BY 'mypassword';
-  GRANT ALL PRIVILEGES ON *.* TO 'myuser'@'localhost';
-  FLUSH PRIVILEGES;
-  
-  # Repeat the above commands for rest of the instances
-  ```
-  * Disable query caching
-  ```sh
-  # Repeat the following commands by connecting to mysql prompt for all instances
-  SHOW VARIABLES LIKE 'query_cache_type';
-  SET GLOBAL query_cache_type = OFF;
-  ```
-3. Set environment variables, to access the database, for Tomcat server
-  ```sh
-  # Create and update the Tomcat setenev.sh(Unix) or setenv.bat(Windows) script 
-  sudo sh -c 'echo "export DB_USER=myuser" >> $CATALINA_HOME/bin/setenv.sh'
-  sudo sh -c 'echo "export DB_PASS=mypassword" >> $CATALINA_HOME/bin/setenv.sh"' 
-  
-  # Restart the Tomcat server
-  sudo systemctl restart tomcat9
+
+* Setup a user that can be used for the application
+```sh
+# Login with default user=root password=root on first instance
+sudo mysql -u myuser -p --socket=/var/run/mysqld/mysqld.sock
+
+CREATE USER 'myuser'@'localhost' IDENTIFIED BY 'mypassword';
+GRANT ALL PRIVILEGES ON *.* TO 'myuser'@'localhost';
+FLUSH PRIVILEGES;
+
+# Repeat the above commands for rest of the instances
+```
+
+* Disable query caching
+```sh
+# Repeat the following commands by connecting to mysql prompt for all instances
+SHOW VARIABLES LIKE 'query_cache_type';
+SET GLOBAL query_cache_type = OFF;
+```
+
+* Set environment variables, to access the database, for Tomcat server
+```sh
+# Create and update the Tomcat setenev.sh(Unix) or setenv.bat(Windows) script 
+sudo sh -c 'echo "export DB_USER=myuser" >> $CATALINA_HOME/bin/setenv.sh'
+sudo sh -c 'echo "export DB_PASS=mypassword" >> $CATALINA_HOME/bin/setenv.sh"' 
+
+# Restart the Tomcat server
+sudo systemctl restart tomcat9
   ```
 
-#### Database Schema
+#### 2.2 Creating Database Schema
 
-Login into Mysql server console using your user
+* Login into Mysql server console using your user
 ```sh
 mysql -u myuser -p
 ```
-Create a database with name `jobapplication`
+
+* Create a database with name `jobapplication`
 ```sql
 CREATE DATABASE jobapplication;
 ```
-Create the `profile` table using following command
 
+* Create the `profile` table using following command
 ```sql
 USE jobapplication;
 
@@ -169,14 +176,40 @@ CREATE TABLE `jobapplication`.`profile` (
 DESCRIBE Profile;
 ```
 
-Create table partitions using following command
 
-Make three partitions of the table based on values in Degree (underGraduate, postGraduate, PhD)
+## Job Portal Client Usage
 
-```sql
-ALTER TABLE Profile PARTITION BY LIST COLUMNS (Degree) ( 
-PARTITION p1 VALUES IN ('underGraduate'), 
-PARTITION p2 VALUES IN ('postGraduate', 'MS'), 
-PARTITION p3 VALUES IN ('PhD') );
+### Generating random profiles dataset
+
+```py
+# This command Generates 200,00 profiles and wtites it into a file
+# Each line of the file is JSON string of profile
+
+python3 client.py --generator --count 200000 --file profiles200k.txt
 ```
 
+### Saving generated profiles dataset in DB
+
+```py
+# This command reads each line of file as a profile and sends it to the web-server as a request to write
+# The web-server saves each profile as a row in the database
+
+python3 client.py --writer --file profiles200k.txt
+```
+
+### Fetching/Searching profiles using query filter 
+```py
+# Fetching rows where degree = 'BS' from database
+# Selected rows are converted back to a profile JSON and sent to this client
+
+python3 client.py --reader --fieldKey degree --fieldValue BS
+```
+
+### Read performance bechmarking
+
+```py
+# Adding the benchmark option to the previous command means we are now running the read request 20 times
+# This command emits the average time taken to serve the same request end-to-end
+
+python3 client.py --reader --fieldKey degree --fieldValue BS --benchmark 20
+```
